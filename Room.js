@@ -34,7 +34,7 @@ class Room {
   end(loserIdx) {
     this.isStarted = false;
     this.board = null;
-    this.players.map((player) => ({
+    this.players = this.players.map((player) => ({
       ...player,
       isFirst: !player.isFirst,
       isReady: false,
@@ -45,12 +45,16 @@ class Room {
 
   join(socketId, username) {
     console.log('user joined', username);
-    if (!username) return;
+    if (!username) return { type: 'UNDEFINED_USER' };
+
     const playerIdx = this.players.findIndex((player) => {
       return player.username === username;
     });
 
     if (playerIdx === -1) {
+      if (this.players.length >= 2) {
+        return { type: 'FULL' };
+      }
       this.players = [
         ...this.players,
         {
@@ -62,13 +66,14 @@ class Room {
           isTurn: false,
         },
       ];
-      return;
+      return { type: 'NEW_USER' };
     }
 
     // update socketId
+    const prevSocketId = this.players[playerIdx].socketId;
     this.players[playerIdx].socketId = socketId;
-
-    // socketId 다를 시 대처 필요
+    console.log(prevSocketId);
+    return { type: 'REPLACE', prevSocketId };
   }
 
   checkUser(username) {
@@ -79,6 +84,15 @@ class Room {
     this.players = this.players.filter(
       (player) => player.username !== username
     );
+
+    if (this.players.length === 1) {
+      const player = this.players[0];
+      player.isOwner = true;
+      player.isReady = true;
+      player.isFirst = true;
+
+      this.ownerName = player.name;
+    }
   }
 
   isEmpty() {

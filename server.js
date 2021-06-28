@@ -6,6 +6,8 @@ const server = http.createServer(app);
 const io = socket(server, { cors: { origin: '*' } });
 
 const Room = require('./Room');
+const responseJoinRoom = require('./lib/responseJoinRoom');
+const updateRoomList = require('./lib/updateRoomList');
 
 let roomList = [];
 
@@ -15,18 +17,11 @@ io.sockets.on('connection', function (socket) {
     console.log(
       `socket_id: ${socket.id}, username: ${socket.username} is connected`
     );
-
     socket.broadcast.emit('updateTest', 'testMessage');
   });
 
   socket.on('requestRoomList', () => {
-    socket.emit(
-      'sendRoomList',
-      roomList.map((room) => {
-        const { id, title, isStarted, players } = room;
-        return { id, title, isStarted, currNum: players.length };
-      })
-    );
+    updateRoomList(socket, roomList);
   });
 
   socket.on('onCreateRoom', ({ title, password }) => {
@@ -40,13 +35,7 @@ io.sockets.on('connection', function (socket) {
     // socket.join(room.id);
     roomList = [...roomList, room];
     socket.emit('sendRoomId', room.id);
-    io.emit(
-      'sendRoomList',
-      roomList.map((room) => {
-        const { id, title, isStarted, players } = room;
-        return { id, title, isStarted, currNum: players.length };
-      })
-    );
+    updateRoomList(io, roomList);
   });
 
   socket.on('requestJoin', ({ roomId, password }) => {
@@ -112,32 +101,47 @@ io.sockets.on('connection', function (socket) {
     }
 
     socket.join(room.id);
-    room.join(socket.id, username);
+    const flag = room.join(socket.id, username);
 
-    const { title, players, isStarted, turnIdx, board } = room;
-    socket.emit('responseJoinRoom', {
-      success: true,
-      data: {
-        title,
-        players,
-        isStarted,
-        turnIdx,
-        history: board ? board.history : [],
-      },
-    });
+    switch (flag.type) {
+      case 'NEW_USER': {
+        responseJoinRoom(socket, room);
 
-    socket.broadcast.to(room.id).emit('update', {
-      type: 'NEW_USER',
-      username: username,
-    });
+        socket.broadcast.to(room.id).emit('update', {
+          type: 'NEW_USER',
+          username: username,
+        });
 
-    io.emit(
-      'sendRoomList',
-      roomList.map((room) => {
-        const { id, title, isStarted, players } = room;
-        return { id, title, isStarted, currNum: players.length };
-      })
-    );
+        updateRoomList(io, roomList);
+
+        return;
+      }
+
+      case 'REPLACE': {
+        responseJoinRoom(socket, room);
+        const prevSocket = io.sockets.sockets.get(flag.prevSocketId);
+        if (!prevSocket) return;
+        prevSocket.leave(roomId);
+        prevSocket.emit('update', { type: 'ANOTHER_CONNECTION' });
+        return;
+      }
+
+      case 'FULL': {
+        socket.emit('responseJoinRoom', {
+          success: false,
+          message: '정원이 초과되었습니다.',
+        });
+        return;
+      }
+
+      default: {
+        socket.emit('responseJoinRoom', {
+          success: false,
+          message: '에러 발생',
+        });
+        return;
+      }
+    }
   });
 
   socket.on('sendMessage', ({ roomId, message }) => {
@@ -175,10 +179,11 @@ io.sockets.on('connection', function (socket) {
     console.log(`Room ${roomId} has started the game`);
   });
 
-  socket.on('surrender', (roomId) => {
+  socket.on('surrender', ({ roomId, loserIdx }) => {
     const room = roomList.find((room) => room.id === roomId);
-    const { winner, loser } = room.end({ loser: socket.username });
-    io.to(roomId).emit('update', { type: 'END', payload: { winner, loser } });
+    const winnerIdx = room.end(loserIdx);
+    console.log(room.players[loserIdx].username, 'has surrendered');
+    io.to(roomId).emit('update', { type: 'END', payload: { winnerIdx } });
   });
 
   socket.on('onLeaveRoom', ({ roomId }) => {
@@ -186,18 +191,21 @@ io.sockets.on('connection', function (socket) {
     const { username } = socket;
     console.log(username, 'has left the room', roomId);
     const room = roomList.find((room) => room.id === roomId);
+    if (!room) return;
+
     room.exit({ username });
     if (room.isEmpty()) {
       roomList = roomList.filter((room) => room.id !== roomId);
     }
 
-    io.emit(
-      'sendRoomList',
-      roomList.map((room) => {
-        const { id, title, isStarted, players } = room;
-        return { id, title, isStarted, currNum: players.length };
-      })
-    );
+    const { players } = room;
+
+    socket.broadcast.to(roomId).emit('update', {
+      type: 'EXIT_USER',
+      payload: { players, exitUser: username },
+    });
+
+    updateRoomList(io, roomList);
   });
 
   socket.on('putStone', ({ roomId, position }) => {
