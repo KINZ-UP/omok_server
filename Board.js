@@ -1,3 +1,4 @@
+/* eslint-disable no-constant-condition */
 const directions = [
   [1, 0],
   [0, 1],
@@ -5,62 +6,93 @@ const directions = [
   [1, -1],
 ];
 
-const threeChecks = [
-  { diff: [-3, -2, -1, 1], shouldOccupied: [0, 1, 1, 0] },
-  { diff: [-2, -1, 1, 2], shouldOccupied: [0, 1, 1, 0] },
-  { diff: [-1, 1, 2, 3], shouldOccupied: [0, 1, 1, 0] },
-  { diff: [-4, -3, -2, -1, 1], shouldOccupied: [0, 1, 1, 0, 0] },
-  { diff: [-4, -3, -2, -1, 1], shouldOccupied: [0, 1, 0, 1, 0] },
-  { diff: [-3, -2, -1, 1, 2], shouldOccupied: [0, 1, 0, 1, 0] },
-  { diff: [-2, -1, 1, 2, 3], shouldOccupied: [0, 1, 0, 1, 0] },
-  { diff: [-1, 1, 2, 3, 4], shouldOccupied: [0, 1, 0, 1, 0] },
-  { diff: [-1, 1, 2, 3, 4], shouldOccupied: [0, 0, 1, 1, 0] },
+const fiveConditions = [
+  { startIdx: -4, condition: [1, 1, 1, 1, 1] },
+  { startIdx: -3, condition: [1, 1, 1, 1, 1] },
+  { startIdx: -2, condition: [1, 1, 1, 1, 1] },
+  { startIdx: -1, condition: [1, 1, 1, 1, 1] },
+  { startIdx: 0, condition: [1, 1, 1, 1, 1] },
 ];
 
-const fiveChecks = [
-  { diff: [-5, -4, -3, -2, -1, 1], shouldOccupied: [0, 1, 1, 1, 1, 0] },
-  { diff: [-4, -3, -2, -1, 1, 2], shouldOccupied: [0, 1, 1, 1, 1, 0] },
-  { diff: [-3, -2, -1, 1, 2, 3], shouldOccupied: [0, 1, 1, 1, 1, 0] },
-  { diff: [-2, -1, 1, 2, 3, 4], shouldOccupied: [0, 1, 1, 1, 1, 0] },
-  { diff: [-1, 1, 2, 3, 4, 5], shouldOccupied: [0, 1, 1, 1, 1, 0] },
+const pureFiveConditions = [
+  { startIdx: -5, condition: [-1, 1, 1, 1, 1, 1, -1] },
+  { startIdx: -4, condition: [-1, 1, 1, 1, 1, 1, -1] },
+  { startIdx: -3, condition: [-1, 1, 1, 1, 1, 1, -1] },
+  { startIdx: -2, condition: [-1, 1, 1, 1, 1, 1, -1] },
+  { startIdx: -1, condition: [-1, 1, 1, 1, 1, 1, -1] },
+];
+
+const threeConditions = [
+  { startIdx: -2, condition: [-1, 0, 0, 1, 1, 0, 0, -1] },
+  { startIdx: -3, condition: [-1, 0, 1, 0, 1, 0, 0, -1] },
+  { startIdx: -4, condition: [-1, 0, 1, 1, 0, 0, 0, -1] },
+  { startIdx: -2, condition: [-1, 0, 0, 1, 0, 1, 0, -1] },
+  { startIdx: -3, condition: [-1, 0, 1, 0, 0, 1, 0, -1] },
+  { startIdx: -5, condition: [-1, 0, 1, 1, 0, 0, 0, -1] },
+  { startIdx: -2, condition: [-1, 0, 0, 0, 1, 1, 0, -1] },
+  { startIdx: -4, condition: [-1, 0, 1, 0, 0, 1, 0, -1] },
+  { startIdx: -5, condition: [-1, 0, 1, 0, 1, 0, 0, -1] },
+  { startIdx: -3, condition: [-1, 0, 0, 0, 1, 1, 0, -1] },
+  { startIdx: -4, condition: [-1, 0, 0, 1, 0, 1, 0, -1] },
+  { startIdx: -5, condition: [-1, 0, 0, 1, 1, 0, 0, -1] },
 ];
 
 class Board {
   constructor(n) {
     this.size = n;
-    this.grid = Array.from({ length: n }, () => Array(n).fill(0));
+    this.grid = Array.from({ length: n + 1 }, () => Array(n + 1).fill(0));
     this.history = [];
+    this.color = 1;
+    console.log(this.grid);
   }
 
-  put(color, x, y) {
-    this.grid[x][y] = 1;
-    this.history.push({ color, x, y });
-
-    return this.existAnyFive(color, x, y);
+  put(x, y) {
+    this.grid[y][x] = this.color;
+    this.history.push({ x, y, color: this.color });
+    const flag = this.checkWin(x, y);
+    this.color = -this.color;
+    console.table(this.grid);
+    return flag;
   }
 
-  rollback() {
-    if (this.history.length === 0) return;
-    const { x, y } = this.history.pop();
-    this.grid[x][y] = 0;
+  rollback(c) {
+    if (this.history.length === 0) return 0;
+    for (let i = 0; i < 2; i++) {
+      const { x, y, color } = this.history.pop();
+      this.grid[y][x] = 0;
+      if (c === color) break;
+    }
+    return this.history.length;
   }
 
-  existAnyFive(color, x, y) {
+  checkWin(x, y) {
+    return this.color === 1 ? this.isBlackWin(x, y) : this.isWhiteWin(x, y);
+  }
+
+  isBlackWin(x, y) {
     return directions.some((direction) => {
-      const [dx, dy] = direction;
-      return this.isFiveInRow(color, x, y, dx, dy);
+      return this.isPureFiveInRow(x, y, direction);
     });
   }
 
-  isFiveInRow(color, x, y, dx, dy) {
-    return this.isContinuous(fiveChecks, color, x, y, dx, dy);
+  isWhiteWin(x, y) {
+    return directions.some((direction) => {
+      return this.isFiveInRow(x, y, direction);
+    });
   }
 
-  isDoubleThree(color, x, y) {
+  isPureFiveInRow(x, y, direction) {
+    return this.checkCondition(pureFiveConditions, x, y, direction);
+  }
+
+  isFiveInRow(x, y, direction) {
+    return this.checkCondition(fiveConditions, x, y, direction);
+  }
+
+  isDoubleThree(x, y) {
     let count = 0;
     for (let direction of directions) {
-      const [dx, dy] = direction;
-      if (this.isThree(color, x, y, dx, dy)) {
+      if (this.isThree(x, y, direction)) {
         count += 1;
       }
       if (count == 2) {
@@ -70,33 +102,46 @@ class Board {
     return false;
   }
 
-  isThree(color, x, y, dx, dy) {
-    return this.isContinuous(threeChecks, color, x, y, dx, dy);
+  isThree(x, y, direction) {
+    return this.checkCondition(threeConditions, x, y, direction);
   }
 
-  checkContinuous(checkItems, color, x, y, dx, dy) {
-    const sign = color === 'B' ? 1 : -1;
-    return checkItems.some((item) => {
-      const coords = item.diff.map((n) => [x + n * dx, y + n * dy]);
-      return coords.every((coord, idx) => {
-        const [currX, currY] = coord;
-        const occupied = this.grid[currX][currY] === sign;
-        const shouldOccupied = item.shouldOccupied[idx] === 1;
-        return occupied === shouldOccupied;
-      });
+  checkCondition(conditions, x, y, direction) {
+    const [dx, dy] = direction;
+    return conditions.some((check) => {
+      const { startIdx, condition } = check;
+      return condition
+        .map((c, idx) => [
+          x + (startIdx + idx) * dx,
+          y + (startIdx + idx) * dy,
+          c,
+        ])
+        .every((item) => {
+          const [posX, posY, c] = item;
+          switch (c) {
+            case 1:
+              return this.isOccupiedWithCurrColor(posX, posY);
+            case 0:
+              return this.isBlank(posX, posY);
+            case -1:
+              return !this.isOccupiedWithCurrColor(posX, posY);
+            default:
+              return false;
+          }
+        });
     });
   }
 
-  isOccupied(node, sign) {
-    if (!this.inRange(node)) return false;
-
-    const [x, y] = node;
-    return this.grid[x][y] === sign;
+  isOccupiedWithCurrColor(x, y) {
+    return this.inRange(x, y) && this.grid[y][x] === this.color;
   }
 
-  inRange(node) {
-    const [x, y] = node;
-    return x >= 0 && y >= 0 && x < this.size && y < this.size;
+  isBlank(x, y) {
+    return this.inRange(x, y) && this.grid[y][x] === 0;
+  }
+
+  inRange(x, y) {
+    return x >= 0 && y >= 0 && x <= this.size && y <= this.size;
   }
 }
 

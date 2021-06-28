@@ -1,28 +1,46 @@
 const { uuid } = require('uuidv4');
+const Board = require('./Board');
 
 class Room {
   constructor({ title, password, username }) {
     this.id = uuid();
     this.title = title;
-    console.log('username:', username);
     this.password = password ? password : null;
     this.ownerName = username;
     this.players = [];
+    this.turnIdx = null;
     this.isStarted = false;
     this.board = null;
   }
 
+  toggleReady(username) {
+    this.players = this.players.map((player) =>
+      player.username === username
+        ? { ...player, isReady: !player.isReady }
+        : player
+    );
+  }
+
   start() {
     this.isStarted = true;
+    this.turnIdx = this.players.findIndex((player) => player.isFirst);
+    this.board = new Board(10);
   }
 
   canStart() {
     return this.players.every((player) => player.isReady);
   }
 
-  end() {
+  end(loserIdx) {
     this.isStarted = false;
     this.board = null;
+    this.players.map((player) => ({
+      ...player,
+      isFirst: !player.isFirst,
+      isReady: false,
+    }));
+    this.turnIdx = null;
+    return 1 - loserIdx;
   }
 
   join(socketId, username) {
@@ -39,7 +57,9 @@ class Room {
           socketId,
           username,
           isOwner: username === this.ownerName,
-          isReady: false,
+          isReady: username === this.ownerName,
+          isFirst: username === this.ownerName,
+          isTurn: false,
         },
       ];
       return;
@@ -55,9 +75,9 @@ class Room {
     return this.players.some((player) => player.username === username);
   }
 
-  exit({ socketId }) {
+  exit({ username }) {
     this.players = this.players.filter(
-      (player) => player.socketId !== socketId
+      (player) => player.username !== username
     );
   }
 
@@ -69,6 +89,12 @@ class Room {
     this.players = this.players.map((player) =>
       player.socketId === socketId ? { ...player, isReady: true } : player
     );
+  }
+
+  putStone(x, y) {
+    const flag = this.board.put(x, y);
+    this.turnIdx = 1 - this.turnIdx;
+    return flag;
   }
 }
 
