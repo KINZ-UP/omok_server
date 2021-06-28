@@ -28,7 +28,10 @@ class Room {
   }
 
   canStart() {
-    return this.players.every((player) => player.isReady);
+    return (
+      this.players.length === 2 &&
+      this.players.every((player) => player.isReady)
+    );
   }
 
   end(loserIdx) {

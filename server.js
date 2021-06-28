@@ -171,6 +171,13 @@ io.sockets.on('connection', function (socket) {
 
   socket.on('startGame', (roomId) => {
     const room = roomList.find((room) => room.id === roomId);
+    if (!room.canStart()) {
+      io.to(roomId).emit('update', {
+        type: 'START_ERROR',
+        payload: { message: '게임을 시작할 수 없습니다.' },
+      });
+      return;
+    }
     room.start();
     io.to(roomId).emit('update', {
       type: 'START',
