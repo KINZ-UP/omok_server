@@ -40,7 +40,7 @@ class Room {
     this.players = this.players.map((player) => ({
       ...player,
       isFirst: !player.isFirst,
-      isReady: false,
+      isReady: player.isOwner,
     }));
     this.turnIdx = null;
     return 1 - loserIdx;
