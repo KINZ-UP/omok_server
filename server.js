@@ -113,7 +113,6 @@ io.sockets.on('connection', function (socket) {
         });
 
         updateRoomList(io, roomList);
-
         return;
       }
 
@@ -183,6 +182,9 @@ io.sockets.on('connection', function (socket) {
       type: 'START',
       payload: { turnIdx: room.turnIdx },
     });
+
+    updateRoomList(io, roomList);
+
     console.log(`Room ${roomId} has started the game`);
   });
 
@@ -191,6 +193,7 @@ io.sockets.on('connection', function (socket) {
     const winnerIdx = room.end(loserIdx);
     console.log(room.players[loserIdx].username, 'has surrendered');
     io.to(roomId).emit('update', { type: 'END', payload: { winnerIdx } });
+    updateRoomList(io, roomList);
   });
 
   socket.on('onLeaveRoom', ({ roomId }) => {
@@ -250,6 +253,8 @@ io.sockets.on('connection', function (socket) {
       type: 'END',
       payload: { winnerIdx },
     });
+
+    updateRoomList(io, roomList);
   });
 
   socket.on('rollback', ({ roomId }) => {
