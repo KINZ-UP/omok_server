@@ -26,6 +26,7 @@ io.sockets.on('connection', function (socket) {
 
   socket.on('onCreateRoom', ({ title, password }) => {
     const room = new Room({
+      io,
       title,
       password,
       socketId: socket.id,
@@ -39,6 +40,7 @@ io.sockets.on('connection', function (socket) {
   });
 
   socket.on('requestJoin', ({ roomId, password }) => {
+    console.log('requestJoin');
     const room = roomList.find((room) => room.id === roomId);
     if (!room) {
       socket.emit('responseRequestJoin', {
@@ -71,7 +73,7 @@ io.sockets.on('connection', function (socket) {
       });
     }
 
-    room.join({ socketId: socket.id, username: socket.username });
+    // room.join({ socketId: socket.id, username: socket.username });
     socket.emit('responseRequestJoin', { success: true });
   });
 
@@ -90,6 +92,7 @@ io.sockets.on('connection', function (socket) {
   });
 
   socket.on('joinRoom', ({ roomId, username }) => {
+    console.log('joinRoom');
     const room = roomList.find((room) => room.id === roomId);
 
     if (!room) {
@@ -190,9 +193,9 @@ io.sockets.on('connection', function (socket) {
 
   socket.on('surrender', ({ roomId, loserIdx }) => {
     const room = roomList.find((room) => room.id === roomId);
-    const winnerIdx = room.end(loserIdx);
+    room.surrender(loserIdx);
     console.log(room.players[loserIdx].username, 'has surrendered');
-    io.to(roomId).emit('update', { type: 'END', payload: { winnerIdx } });
+
     updateRoomList(io, roomList);
   });
 
@@ -238,23 +241,11 @@ io.sockets.on('connection', function (socket) {
       return;
     }
 
-    const flag = room.putStone(x, y);
-    const turnIdx = room.turnIdx;
+    room.putStone(x, y);
 
-    io.to(roomId).emit('game', {
-      type: 'PUT_STONE',
-      payload: { x, y, turnIdx },
-    });
-
-    if (!flag) return;
-    const winnerIdx = room.end(room.turnIdx);
-
-    io.to(roomId).emit('update', {
-      type: 'END',
-      payload: { winnerIdx },
-    });
-
-    updateRoomList(io, roomList);
+    if (!room.isStarted) {
+      updateRoomList(io, roomList);
+    }
   });
 
   socket.on('rollback', ({ roomId }) => {

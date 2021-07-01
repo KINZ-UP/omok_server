@@ -2,8 +2,9 @@ const { uuid } = require('uuidv4');
 const Board = require('./Board');
 
 class Room {
-  constructor({ title, password, username }) {
+  constructor({ io, title, password, username }) {
     this.id = uuid();
+    this.socket = io.to(this.id);
     this.title = title;
     this.password = password ? password : null;
     this.ownerName = username;
@@ -11,6 +12,8 @@ class Room {
     this.turnIdx = null;
     this.isStarted = false;
     this.board = null;
+    this.timeLimit = 30;
+    this.remainTime = this.timeLimit;
   }
 
   toggleReady(username) {
@@ -25,6 +28,7 @@ class Room {
     this.isStarted = true;
     this.turnIdx = this.players.findIndex((player) => player.isFirst);
     this.board = new Board(10);
+    this.initTimer();
   }
 
   canStart() {
@@ -35,6 +39,11 @@ class Room {
   }
 
   end(loserIdx) {
+    this.socket.emit('update', {
+      type: 'END',
+      payload: { winnerIdx: 1 - loserIdx },
+    });
+
     this.isStarted = false;
     this.board = null;
     this.players = this.players.map((player) => ({
@@ -43,11 +52,11 @@ class Room {
       isReady: player.isOwner,
     }));
     this.turnIdx = null;
-    return 1 - loserIdx;
   }
 
   join(socketId, username) {
     console.log('user joined', username);
+
     if (!username) return { type: 'UNDEFINED_USER' };
 
     const playerIdx = this.players.findIndex((player) => {
@@ -75,7 +84,9 @@ class Room {
     // update socketId
     const prevSocketId = this.players[playerIdx].socketId;
     this.players[playerIdx].socketId = socketId;
-    console.log(prevSocketId);
+    console.log('prev', prevSocketId);
+    console.log('curr', socketId);
+
     return { type: 'REPLACE', prevSocketId };
   }
 
@@ -110,8 +121,47 @@ class Room {
 
   putStone(x, y) {
     const flag = this.board.put(x, y);
+    this.socket.emit('game', {
+      type: 'PUT_STONE',
+      payload: { x, y, turnIdx: this.turnIdx },
+    });
+
     this.turnIdx = 1 - this.turnIdx;
-    return flag;
+    this.resetTimer();
+    if (!flag) {
+      this.initTimer();
+      return;
+    }
+    this.end(this.turnIdx);
+  }
+
+  initTimer() {
+    this.timer = setInterval(() => {
+      this.updateTimer();
+    }, 1000);
+    this.emitTimer();
+  }
+
+  updateTimer() {
+    this.remainTime = this.remainTime - 1;
+    if (this.remainTime <= 0) {
+      this.resetTimer();
+      this.end(this.turnIdx);
+    }
+  }
+
+  emitTimer() {
+    this.socket.emit('timer', this.remainTime);
+  }
+
+  resetTimer() {
+    this.remainTime = this.timeLimit;
+    clearInterval(this.timer);
+  }
+
+  surrender(loserIdx) {
+    this.resetTimer();
+    this.end(loserIdx);
   }
 }
 
