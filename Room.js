@@ -121,12 +121,12 @@ class Room {
 
   putStone(x, y) {
     const flag = this.board.put(x, y);
+    this.turnIdx = 1 - this.turnIdx;
     this.socket.emit('game', {
       type: 'PUT_STONE',
       payload: { x, y, turnIdx: this.turnIdx },
     });
 
-    this.turnIdx = 1 - this.turnIdx;
     this.resetTimer();
     if (!flag) {
       this.initTimer();
@@ -145,6 +145,7 @@ class Room {
   updateTimer() {
     this.remainTime = this.remainTime - 1;
     if (this.remainTime <= 0) {
+      this.emitTimer();
       this.resetTimer();
       this.end(this.turnIdx);
     }
