@@ -138,8 +138,8 @@ class Room {
   initTimer() {
     this.timer = setInterval(() => {
       this.updateTimer();
+      this.emitTimer();
     }, 1000);
-    this.emitTimer();
   }
 
   updateTimer() {
