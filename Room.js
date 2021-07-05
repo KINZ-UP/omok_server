@@ -2,7 +2,7 @@ const { uuid } = require('uuidv4');
 const Board = require('./Board');
 
 class Room {
-  constructor({ io, title, password, username }) {
+  constructor({ io, title, password, username, totalTime, numOfSection }) {
     this.id = uuid();
     this.socket = io.to(this.id);
     this.title = title;
@@ -12,8 +12,9 @@ class Room {
     this.turnIdx = null;
     this.isStarted = false;
     this.board = null;
-    this.timeLimit = 30;
-    this.remainTime = this.timeLimit;
+    this.totalTime = totalTime;
+    this.remainTime = this.totalTime;
+    this.numOfSection = numOfSection;
   }
 
   toggleReady(username) {
@@ -27,7 +28,7 @@ class Room {
   start() {
     this.isStarted = true;
     this.turnIdx = this.players.findIndex((player) => player.isFirst);
-    this.board = new Board(10);
+    this.board = new Board(this.numOfSection);
     this.initTimer();
   }
 
@@ -156,13 +157,24 @@ class Room {
   }
 
   resetTimer() {
-    this.remainTime = this.timeLimit;
+    this.remainTime = this.totalTime;
     clearInterval(this.timer);
+  }
+
+  updateSetting({ totalTime, numOfSection }) {
+    this.totalTime = totalTime;
+    this.numOfSection = numOfSection;
+    console.log('totalTime', this.totalTime);
+    console.log('numOfSection', this.numOfSection);
   }
 
   surrender(loserIdx) {
     this.resetTimer();
     this.end(loserIdx);
+  }
+
+  isBlack() {
+    return this.players[this.turnIdx].isFirst;
   }
 }
 

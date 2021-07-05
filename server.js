@@ -31,6 +31,8 @@ io.sockets.on('connection', function (socket) {
       password,
       socketId: socket.id,
       username: socket.username,
+      totalTime: 30,
+      numOfSection: 10,
     });
 
     // socket.join(room.id);
@@ -233,7 +235,7 @@ io.sockets.on('connection', function (socket) {
       return;
     }
 
-    if (room.board.isDoubleThree(x, y)) {
+    if (room.isBlack() && room.board.isDoubleThree(x, y)) {
       io.to(roomId).emit('game', {
         type: 'PUT_STONE_ERROR',
         payload: { message: 'DOUBLE_THREE' },
@@ -246,6 +248,19 @@ io.sockets.on('connection', function (socket) {
     if (!room.isStarted) {
       updateRoomList(io, roomList);
     }
+  });
+
+  socket.on('updateSetting', ({ roomId, totalTime, numOfSection }) => {
+    const room = roomList.find((room) => room.id === roomId);
+    if (!room) return;
+
+    console.log('Updated Setting!');
+
+    room.updateSetting({ totalTime, numOfSection });
+    io.to(roomId).emit('update', {
+      type: 'SETTING',
+      payload: { totalTime, numOfSection },
+    });
   });
 
   socket.on('rollback', ({ roomId }) => {

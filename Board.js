@@ -43,7 +43,7 @@ class Board {
     this.grid = Array.from({ length: n + 1 }, () => Array(n + 1).fill(0));
     this.history = [];
     this.color = 1;
-    console.log(this.grid);
+    console.table(this.grid);
   }
 
   put(x, y) {
