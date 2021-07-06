@@ -24,15 +24,16 @@ io.sockets.on('connection', function (socket) {
     updateRoomList(socket, roomList);
   });
 
-  socket.on('onCreateRoom', ({ title, password }) => {
+  socket.on('onCreateRoom', ({ title, password, setting }) => {
+    const { totalTime, numOfSection } = setting;
     const room = new Room({
       io,
       title,
       password,
       socketId: socket.id,
       username: socket.username,
-      totalTime: 30,
-      numOfSection: 10,
+      totalTime,
+      numOfSection,
     });
 
     // socket.join(room.id);
