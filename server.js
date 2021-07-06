@@ -238,7 +238,7 @@ io.sockets.on('connection', function (socket) {
     if (room.isBlack() && room.board.isDoubleThree(x, y)) {
       io.to(roomId).emit('game', {
         type: 'PUT_STONE_ERROR',
-        payload: { message: 'DOUBLE_THREE' },
+        payload: { message: '그 위치에는 착수할 수 없습니다.' },
       });
       return;
     }
