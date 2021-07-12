@@ -8,7 +8,7 @@ const socket = require('socket.io');
 const server = http.createServer(app);
 const io = socket(server, { cors: { origin: '*' } });
 
-const Room = require('./Room');
+const Room = require('./omok/Room');
 const responseJoinRoom = require('./lib/responseJoinRoom');
 const updateRoomList = require('./lib/updateRoomList');
 
