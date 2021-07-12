@@ -20,6 +20,6 @@
   },
   "scripts": {
     "startDev": "nodemon server.js",
-    "start": "node start"
+    "start": "node server.js"
   }
 }
