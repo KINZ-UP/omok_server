@@ -1,9 +1,9 @@
-const { uuid } = require('uuidv4');
+const { v4 } = require('uuid');
 const Board = require('./Board');
 
 class Room {
   constructor({ io, title, password, username, totalTime, numOfSection }) {
-    this.id = uuid();
+    this.id = v4();
     this.socket = io.to(this.id);
     this.title = title;
     this.password = password ? password : null;
