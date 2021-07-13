@@ -285,6 +285,8 @@ io.sockets.on('connection', function (socket) {
       type: 'SETTING',
       payload: { totalTime, numOfSection },
     });
+
+    updateRoomList(io, roomList);
   });
 
   socket.on('rollback', ({ roomId }) => {
