@@ -1,5 +1,6 @@
 const { v4 } = require('uuid');
 const Board = require('./Board');
+const Player = require('./Player');
 
 class Room {
   constructor({ io, title, password, username, totalTime, numOfSection }) {
@@ -18,11 +19,11 @@ class Room {
   }
 
   toggleReady(username) {
-    this.players = this.players.map((player) =>
-      player.username === username
-        ? { ...player, isReady: !player.isReady }
-        : player
-    );
+    this.players.forEach((player) => {
+      if (player.username === username) {
+        player.toggleReady();
+      }
+    });
   }
 
   start() {
@@ -47,11 +48,7 @@ class Room {
 
     this.isStarted = false;
     this.board = null;
-    this.players = this.players.map((player) => ({
-      ...player,
-      isFirst: !player.isFirst,
-      isReady: player.isOwner,
-    }));
+    this.players.forEach((player) => player.onGameEnd());
     this.turnIdx = null;
   }
 
@@ -60,31 +57,27 @@ class Room {
 
     if (!username) return { type: 'UNDEFINED_USER' };
 
-    const playerIdx = this.players.findIndex((player) => {
+    const player = this.players.find((player) => {
       return player.username === username;
     });
 
-    if (playerIdx === -1) {
+    if (!player) {
       if (this.players.length >= 2) {
         return { type: 'FULL' };
       }
       this.players = [
         ...this.players,
-        {
-          socketId,
-          username,
-          isOwner: username === this.ownerName,
-          isReady: username === this.ownerName,
-          isFirst: username === this.ownerName,
-          isTurn: false,
-        },
+        new Player(socketId, username, username === this.ownerName),
       ];
       return { type: 'NEW_USER' };
     }
 
+    // reset disconnection timeout
+    player.resetTimeout();
+
     // update socketId
-    const prevSocketId = this.players[playerIdx].socketId;
-    this.players[playerIdx].socketId = socketId;
+    const prevSocketId = player.socketId;
+    player.socketId = socketId;
     console.log('prev', prevSocketId);
     console.log('curr', socketId);
 
@@ -102,9 +95,7 @@ class Room {
 
     if (this.players.length === 1) {
       const player = this.players[0];
-      player.isOwner = true;
-      player.isReady = true;
-      player.isFirst = true;
+      player.setAsOwner();
 
       this.ownerName = player.name;
     }
@@ -112,12 +103,6 @@ class Room {
 
   isEmpty() {
     return this.players.length === 0;
-  }
-
-  getReady({ socketId }) {
-    this.players = this.players.map((player) =>
-      player.socketId === socketId ? { ...player, isReady: true } : player
-    );
   }
 
   putStone(x, y) {
@@ -164,8 +149,6 @@ class Room {
   updateSetting({ totalTime, numOfSection }) {
     this.totalTime = totalTime;
     this.numOfSection = numOfSection;
-    console.log('totalTime', this.totalTime);
-    console.log('numOfSection', this.numOfSection);
   }
 
   surrender(loserIdx) {
@@ -175,6 +158,15 @@ class Room {
 
   isBlack() {
     return this.players[this.turnIdx].isFirst;
+  }
+
+  onUserDisconnected(username, timeoutCallback) {
+    const disconnectedPlayer = this.players.find(
+      (player) => player.username === username
+    );
+    if (!disconnectedPlayer) return;
+
+    disconnectedPlayer.onDisconnected(timeoutCallback);
   }
 }
 

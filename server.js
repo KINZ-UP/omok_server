@@ -33,7 +33,10 @@ app.use('/api/user', authRoute);
 app.use('/api/posts', postRoute);
 
 //  Socket Logics
-let roomList = [];
+
+const roomList = [];
+const onLeaveRoom = require('./lib/onLeaveRoom');
+
 io.sockets.on('connection', function (socket) {
   socket.on('newUser', (username) => {
     socket.username = username;
@@ -60,7 +63,7 @@ io.sockets.on('connection', function (socket) {
     });
 
     // socket.join(room.id);
-    roomList = [...roomList, room];
+    roomList.push(room);
     socket.emit('sendRoomId', room.id);
     updateRoomList(io, roomList);
   });
@@ -118,7 +121,6 @@ io.sockets.on('connection', function (socket) {
   });
 
   socket.on('joinRoom', ({ roomId, username }) => {
-    console.log('joinRoom');
     const room = roomList.find((room) => room.id === roomId);
 
     if (!room) {
@@ -129,11 +131,13 @@ io.sockets.on('connection', function (socket) {
       return;
     }
 
-    socket.join(room.id);
     const flag = room.join(socket.id, username);
 
     switch (flag.type) {
       case 'NEW_USER': {
+        socket.join(room.id);
+        socket.joinedRoomId = room.id;
+        console.log('joinedRoomId', socket.joinedRoomId);
         responseJoinRoom(socket, room);
 
         socket.broadcast.to(room.id).emit('update', {
@@ -146,7 +150,10 @@ io.sockets.on('connection', function (socket) {
       }
 
       case 'REPLACE': {
+        socket.join(room.id);
+        socket.joinedRoomId = room.id;
         responseJoinRoom(socket, room);
+
         const prevSocket = io.sockets.sockets.get(flag.prevSocketId);
         if (!prevSocket) return;
         prevSocket.leave(roomId);
@@ -173,8 +180,6 @@ io.sockets.on('connection', function (socket) {
   });
 
   socket.on('sendMessage', ({ roomId, message }) => {
-    console.log(message);
-    console.log(roomId);
     socket.broadcast.to(roomId).emit('update', {
       type: 'MESSAGE',
       payload: {
@@ -225,27 +230,7 @@ io.sockets.on('connection', function (socket) {
     updateRoomList(io, roomList);
   });
 
-  socket.on('onLeaveRoom', ({ roomId }) => {
-    socket.leave(roomId);
-    const { username } = socket;
-    console.log(username, 'has left the room', roomId);
-    const room = roomList.find((room) => room.id === roomId);
-    if (!room) return;
-
-    room.exit({ username });
-    if (room.isEmpty()) {
-      roomList = roomList.filter((room) => room.id !== roomId);
-    }
-
-    const { players } = room;
-
-    socket.broadcast.to(roomId).emit('update', {
-      type: 'EXIT_USER',
-      payload: { players, exitUser: username },
-    });
-
-    updateRoomList(io, roomList);
-  });
+  socket.on('onLeaveRoom', onLeaveRoom(io, socket, roomList));
 
   socket.on('putStone', ({ roomId, position }) => {
     console.log('PUT_STONE', roomId, position);
@@ -289,37 +274,13 @@ io.sockets.on('connection', function (socket) {
     updateRoomList(io, roomList);
   });
 
-  socket.on('rollback', ({ roomId }) => {
-    console.log('rollback request');
-    socket.broadcast.to(roomId).emit('update', {
-      type: 'REQUEST_ROLLBACK',
-    });
-  });
-
-  socket.on('approveRollback', ({ roomId, color }) => {
-    const room = roomList.find((room) => room.id === roomId);
-    const remainLength = room.board.rollback(color);
-    socket.to(roomId).emit('update', {
-      type: 'ROLLBACK',
-      payload: { remainLength },
-    });
-  });
-
-  socket.on('declineRollback', ({ roomId }) => {
-    console.log(socket.username, 'has declined rollback request');
-    socket.to(roomId).emit('update', {
-      type: 'DECLINE_ROLLBACK',
-    });
-  });
-
   socket.on('disconnect', function () {
-    console.log(socket.name + ' 님이 나가셨습니다.');
+    if (!socket.joinedRoomId) return;
 
-    socket.broadcast.emit('update', {
-      type: 'disconnect',
-      name: 'SERVER',
-      message: socket.name + ' 님이 나가셨습니다.',
-    });
+    const room = roomList.find((room) => room.id === socket.joinedRoomId);
+    if (!room) return;
+
+    room.onUserDisconnected(socket.username, onLeaveRoom(io, socket, roomList));
   });
 });
 
