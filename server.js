@@ -36,6 +36,7 @@ app.use('/api/posts', postRoute);
 
 const roomList = [];
 const onLeaveRoom = require('./lib/onLeaveRoom');
+const onDisconnected = require('./lib/onDisconnected');
 
 io.sockets.on('connection', function (socket) {
   socket.on('newUser', (username) => {
@@ -274,14 +275,7 @@ io.sockets.on('connection', function (socket) {
     updateRoomList(io, roomList);
   });
 
-  socket.on('disconnect', function () {
-    if (!socket.joinedRoomId) return;
-
-    const room = roomList.find((room) => room.id === socket.joinedRoomId);
-    if (!room) return;
-
-    room.onUserDisconnected(socket.username, onLeaveRoom(io, socket, roomList));
-  });
+  socket.on('disconnect', onDisconnected(io, socket, roomList));
 });
 
 server.listen(4000, () => console.log('The server has been launched'));
