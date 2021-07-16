@@ -158,6 +158,7 @@ io.sockets.on('connection', function (socket) {
         const prevSocket = io.sockets.sockets.get(flag.prevSocketId);
         if (!prevSocket) return;
         prevSocket.leave(roomId);
+        prevSocket.joinedRoomId = null;
         prevSocket.emit('update', { type: 'ANOTHER_CONNECTION' });
         return;
       }
