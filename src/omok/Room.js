@@ -148,6 +148,7 @@ class Room {
 
   updateSetting({ totalTime, numOfSection }) {
     this.totalTime = totalTime;
+    this.remainTime = totalTime;
     this.numOfSection = numOfSection;
   }
 
