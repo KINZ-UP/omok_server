@@ -63,14 +63,12 @@ io.sockets.on('connection', function (socket) {
       numOfSection,
     });
 
-    // socket.join(room.id);
     roomList.push(room);
     socket.emit('sendRoomId', room.id);
     updateRoomList(io, roomList);
   });
 
   socket.on('requestJoin', ({ roomId, password }) => {
-    console.log('requestJoin');
     const room = roomList.find((room) => room.id === roomId);
     if (!room) {
       socket.emit('responseRequestJoin', {
@@ -88,7 +86,10 @@ io.sockets.on('connection', function (socket) {
       return;
     }
 
-    if (room.players.length >= 2) {
+    if (
+      room.players.length >= 2 &&
+      room.players.every((player) => player.username !== socket.username)
+    ) {
       socket.emit('responseRequestJoin', {
         success: false,
         message: '정원이 초과되었습니다.',
@@ -96,14 +97,6 @@ io.sockets.on('connection', function (socket) {
       return;
     }
 
-    if (room.players.some((player) => player.username === socket.username)) {
-      socket.emit('responseRequestJoin', {
-        success: false,
-        message: '이미 참가한 방입니다.',
-      });
-    }
-
-    // room.join({ socketId: socket.id, username: socket.username });
     socket.emit('responseRequestJoin', { success: true });
   });
 
