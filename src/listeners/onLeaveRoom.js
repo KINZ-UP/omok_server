@@ -1,6 +1,7 @@
-const updateRoomList = require('./updateRoomList');
+const { roomList } = require('./index');
+const updateRoomList = require('../lib/updateRoomList');
 
-function onLeaveRoom(io, socket, roomList) {
+function onLeaveRoom(socket, io) {
   return () => {
     const roomId = socket.joinedRoomId;
     socket.leave(roomId);
